@@ -10,6 +10,12 @@ export default defineConfig(({mode}) => {
   const env = loadEnv(mode, '.', 'VITE_')
 
   return {
+    // Sub-path deploys need this. GitHub Pages serves a project site from
+    // /<repo>/, so without it every asset reference resolves to /assets/... and
+    // the page loads with no JS or CSS. Leave it '/' on root hosts (Vercel,
+    // Netlify, Cloudflare Pages) — the default, so nothing changes there.
+    base: env.VITE_BASE_PATH || '/',
+
     plugins: [react()],
     server: {
       proxy: {

@@ -1,0 +1,75 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  # Manual re-run. This is how you change VITE_API_URL after the API moves: enter
+  # the new URL as the input, then run. VITE_* values are baked in at BUILD time,
+  # so editing a repo variable alone does nothing without a rebuild — which is
+  # exactly what this input is for.
+  workflow_dispatch:
+    inputs:
+      vite_api_url:
+        description: 'API base URL, e.g. https://meme-api-inky.vercel.app (leave blank for the current value)'
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Only one deploy at a time — concurrent ones would race and publish a stale
+# build over a newer one.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Build
+        env:
+          # A project site is served from /<repo>/, so the base path must match or
+          # every asset 404s and the page renders unstyled with no JS.
+          VITE_BASE_PATH: /${{ github.event.repository.name }}/
+          # workflow_dispatch input wins when given; otherwise fall back to the
+          # repository variable set in Settings → Secrets → Actions.
+          VITE_API_URL: ${{ inputs.vite_api_url || vars.VITE_API_URL }}
+        run: npm run build
+
+      - name: Check the build produced sub-path assets, not root ones
+        run: |
+          # A silent failure mode: if base is wrong the site deploys fine and
+          # then 404s in the browser. Catch it here instead.
+          if grep -q 'src="/assets/' dist/index.html; then
+            echo "::error::assets are referenced from /assets/ but this is a sub-path deploy."
+            echo "::error::VITE_BASE_PATH is not being applied — check the Build step env."
+            exit 1
+          fi
+          echo "OK: assets are correctly referenced under /${{ github.event.repository.name }}/"
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

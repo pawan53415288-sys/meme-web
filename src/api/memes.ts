@@ -8,10 +8,14 @@ import type { CategoryId, Meme } from '../types'
 // needs once the two apps live on different origins.
 const API_BASE = (import.meta.env.VITE_API_URL ?? '').replace(/\/+$/, '')
 
-// The server walks a list of free models before giving up, and the working ones
-// are reasoning models that take 25-35s each, so this has to sit above the
-// server's own 90s budget or we'd abort requests that were about to land.
-const CLIENT_TIMEOUT_MS = 120_000
+// Measured against the deployed API: a warm request lands around 14-45s, but a
+// cold one (fresh function instance, first request of a period) was measured at
+// 72s. The old 120s budget sat close enough to that that users on a cold API
+// would be shown "That took too long" for requests that were about to succeed —
+// a failure that looks like a bug in the app and isn't. 150s clears the
+// observed worst case with room to spare, and costs nothing: the request still
+// fails fast if the server genuinely gives up at its own 90s budget.
+const CLIENT_TIMEOUT_MS = 150_000
 
 export async function generateMemes(category: CategoryId): Promise<Meme[]> {
   let response: Response
