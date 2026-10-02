@@ -1,0 +1,20 @@
+node_modules
+dist
+dist-ssr
+*.local
+
+# Environment / secrets — VITE_* vars are inlined into the bundle at build time,
+# so nothing here is a real secret, but keep it out of git anyway.
+.env
+.env.local
+.env.*.local
+
+# Editor directories and files
+.vscode/*
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
